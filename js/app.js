@@ -1037,12 +1037,15 @@ function deleteStopFromModal() {
 function wireUi() {
   document.getElementById("menuToggle").addEventListener("click", () => {
     const sidebar = document.getElementById("sidebar");
-    // "open" drives the mobile slide-over drawer, "collapsed" drives the
-    // desktop width collapse. Pick the one that actually matters for the
-    // current viewport rather than toggling both — relying on the other
-    // being "harmlessly inert" isn't worth the risk.
     const isMobileLayout = window.matchMedia("(max-width: 820px)").matches;
-    sidebar.classList.toggle(isMobileLayout ? "open" : "collapsed");
+    if (isMobileLayout) {
+      // Mobile: full-screen view swap — show one of sidebar/map at a time.
+      sidebar.classList.toggle("open");
+      document.getElementById("mapWrap").classList.toggle("hidden-mobile");
+    } else {
+      // Desktop: sidebar collapses to zero width, map just fills in beside it.
+      sidebar.classList.toggle("collapsed");
+    }
     setTimeout(() => map.invalidateSize(), 220);
   });
 

@@ -651,22 +651,21 @@ html, body {
   line-height: 1.4;
 }
 
-/* Mobile layout */
+/* Mobile layout: a full-screen view swap rather than an overlay drawer —
+   two different overlay mechanisms (transform+transition, then a plain
+   position:absolute display toggle) both failed to render on iPhone
+   Safari across multiple real devices, so this removes position,
+   z-index, and stacking from the equation entirely. Only one of
+   #sidebar / #mapWrap is displayed at a time; #body stays a plain flex
+   row exactly as on desktop, just with one child hidden. */
 @media (max-width: 820px) {
   #sidebar {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    width: 86vw;
-    max-width: 360px;
-    /* A plain display toggle instead of a transform/transition slide —
-       the transform-based version was confirmed broken on iPhone Safari
-       (worked fine on iPad, which uses the desktop width:0 collapse path
-       instead, so the transform+transition combo was the culprit). */
     display: none;
-    box-shadow: 4px 0 16px rgba(0,0,0,.2);
+    width: 100%;
+    max-width: none;
+    border-right: none;
   }
   #sidebar.open { display: flex; }
+  #mapWrap.hidden-mobile { display: none; }
   .map-float { bottom: 16px; }
 }
