@@ -238,11 +238,10 @@ async function copyToClipboard(text) {
 
 // If the page was opened via a shared link (?session=slug), pre-fill and
 // lock the join form's name field so the friend only has to type the password.
-// The field is filled with the session's *display title* for readability,
-// but the actual lookup key (its immutable slug) is stashed in a data
-// attribute — title and slug can diverge once someone renames a trip after
-// creating it, so the join handler must not re-derive the key by
-// re-slugifying whatever text is shown.
+// The field shows the session's actual ID (its immutable slug) — not the
+// editable display title, which can diverge from the slug once a trip is
+// renamed after creation — so there's no ambiguity about what's being
+// looked up. The friendly title still shows in the hint below for context.
 async function applyShareLinkPrefill() {
   const sessionParam = new URLSearchParams(location.search).get("session");
   if (!sessionParam) return;
@@ -250,7 +249,7 @@ async function applyShareLinkPrefill() {
   const data = await fetchSessionOnce(id);
   if (!data) return;
   const nameField = document.getElementById("joinName");
-  nameField.value = data.title || sessionParam;
+  nameField.value = id;
   nameField.readOnly = true;
   nameField.dataset.sessionId = id;
   const hint = document.getElementById("joinNameHint");
