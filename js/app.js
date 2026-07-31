@@ -480,14 +480,48 @@ function flattenStops(days) {
   return flat;
 }
 
+// When two or more stops share (almost) the same coordinates — e.g. a
+// harbor used for both departure and return — plotting them at their real
+// position would stack the pins exactly on top of each other, hiding all
+// but one. This spreads such duplicates into a small circle around the
+// shared point so every one of them stays visible, hoverable, and shows
+// its own badge/popup. Distance/duration math elsewhere still uses the
+// real stop.lat/lng, only the on-map position is nudged.
+function computeDisplayPositions(flat) {
+  const groups = {};
+  flat.forEach((item, i) => {
+    const key = `${item.stop.lat.toFixed(5)},${item.stop.lng.toFixed(5)}`;
+    (groups[key] = groups[key] || []).push(i);
+  });
+
+  const positions = flat.map((item) => ({ lat: item.stop.lat, lng: item.stop.lng }));
+  const RADIUS_DEG = 0.00035; // ~35m, purely a visual nudge
+
+  Object.values(groups).forEach((indices) => {
+    if (indices.length < 2) return;
+    const latRad = (flat[indices[0]].stop.lat * Math.PI) / 180;
+    indices.forEach((idx, j) => {
+      const angle = (2 * Math.PI * j) / indices.length;
+      positions[idx] = {
+        lat: flat[idx].stop.lat + RADIUS_DEG * Math.cos(angle),
+        lng: flat[idx].stop.lng + (RADIUS_DEG * Math.sin(angle)) / Math.cos(latRad),
+      };
+    });
+  });
+
+  return positions;
+}
+
 function renderMap() {
   markerLayer.clearLayers();
   stopMarkers = {};
   const bounds = [];
   const flat = flattenStops(trip.days);
+  const displayPos = computeDisplayPositions(flat);
 
   flat.forEach(({ stop, day }, i) => {
-    const marker = L.marker([stop.lat, stop.lng], { icon: stopDivIcon(stop.type, i + 1) });
+    const pos = displayPos[i];
+    const marker = L.marker([pos.lat, pos.lng], { icon: stopDivIcon(stop.type, i + 1) });
     marker.bindPopup(buildPopupHtml(stop), { closeButton: true, autoClose: false, closeOnClick: false, offset: [0, -4] });
 
     let closeTimer = null;
@@ -526,7 +560,7 @@ function renderMap() {
 
     marker.addTo(markerLayer);
     stopMarkers[stop.id] = marker;
-    bounds.push([stop.lat, stop.lng]);
+    bounds.push([pos.lat, pos.lng]);
   });
 
   // Draw one continuous route across the whole trip: same-day hops get a
@@ -536,12 +570,14 @@ function renderMap() {
   for (let i = 1; i < flat.length; i++) {
     const a = flat[i - 1];
     const b = flat[i];
+    const posA = displayPos[i - 1];
+    const posB = displayPos[i];
     const sameDay = a.dayIndex === b.dayIndex;
     const style = sameDay
       ? { color: DAY_LINE_COLORS[a.dayIndex % DAY_LINE_COLORS.length], weight: 3, opacity: 0.6, dashArray: "6 6" }
       : { color: "#5a6b73", weight: 2, opacity: 0.5, dashArray: "2 8" };
     const nm = haversineNm(a.stop, b.stop);
-    const line = L.polyline([[a.stop.lat, a.stop.lng], [b.stop.lat, b.stop.lng]], style).addTo(markerLayer);
+    const line = L.polyline([[posA.lat, posA.lng], [posB.lat, posB.lng]], style).addTo(markerLayer);
     line.bindTooltip(
       `<strong>${escapeHtml(a.stop.name)} → ${escapeHtml(b.stop.name)}</strong><br>${nm.toFixed(1)} nm · ≈${formatDuration(nm / currentSpeedKnots())}`,
       { sticky: true, direction: "top", className: "route-tooltip" }
