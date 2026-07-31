@@ -917,10 +917,11 @@ function wireUi() {
   document.getElementById("menuToggle").addEventListener("click", () => {
     const sidebar = document.getElementById("sidebar");
     // "open" drives the mobile slide-over drawer, "collapsed" drives the
-    // desktop width collapse — each only has an effect within its own
-    // media query, so toggling both together is safe at every screen size.
-    sidebar.classList.toggle("open");
-    sidebar.classList.toggle("collapsed");
+    // desktop width collapse. Pick the one that actually matters for the
+    // current viewport rather than toggling both — relying on the other
+    // being "harmlessly inert" isn't worth the risk.
+    const isMobileLayout = window.matchMedia("(max-width: 820px)").matches;
+    sidebar.classList.toggle(isMobileLayout ? "open" : "collapsed");
     setTimeout(() => map.invalidateSize(), 220);
   });
 
