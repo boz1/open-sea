@@ -120,6 +120,34 @@ html, body {
 }
 .map-float:hover { background: #f0f0f0; }
 
+/* Trip notes */
+.notes-box {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  background: #fbf8f1;
+}
+.notes-box summary {
+  padding: 8px 10px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: var(--ink);
+}
+.notes-box textarea {
+  display: block;
+  width: 100%;
+  border: none;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  padding: 8px 10px;
+  font-size: 0.82rem;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.notes-box textarea:focus { outline: none; background: white; }
+
 /* Day cards */
 .day-card {
   border: 1px solid var(--line);
@@ -195,12 +223,8 @@ html, body {
   font-size: 0.8rem;
   color: #5a6b73;
   margin-top: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
 }
+.stop-notes a { color: var(--sea); }
 
 .stop-reorder {
   display: flex;
@@ -294,6 +318,12 @@ html, body {
   font-size: 0.92rem;
   font-family: inherit;
 }
+.coord-row {
+  display: flex;
+  gap: 8px;
+}
+.coord-row input { margin-top: 0; }
+
 .modal-actions {
   display: flex;
   align-items: center;

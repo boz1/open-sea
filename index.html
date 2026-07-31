@@ -21,6 +21,10 @@
   <div id="body">
     <aside id="sidebar">
       <div class="sidebar-scroll">
+        <details id="notesBox" class="notes-box">
+          <summary>📋 Trip notes</summary>
+          <textarea id="generalNotes" rows="6" placeholder="Shared notes for everyone (logistics, mooring info, etc.)"></textarea>
+        </details>
         <div id="dayList"></div>
         <button id="addDayBtn" class="btn btn-secondary">+ Add Day</button>
       </div>
@@ -61,6 +65,12 @@
     </label>
     <label>Notes <span class="opt">(optional)</span>
       <textarea id="stopNotes" rows="3" placeholder="Anything worth remembering..."></textarea>
+    </label>
+    <label>Coordinates <span class="opt">(nudge the pin if it's off)</span>
+      <div class="coord-row">
+        <input id="stopLat" type="number" step="0.0001" placeholder="lat" />
+        <input id="stopLng" type="number" step="0.0001" placeholder="lng" />
+      </div>
     </label>
     <div class="modal-actions">
       <button id="deleteStopBtn" class="btn btn-danger hidden">Delete</button>

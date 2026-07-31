@@ -15,40 +15,58 @@ const STOP_TYPES = {
 
 const DEFAULT_TRIP = {
   title: "Fethiye Boat Trip",
+  generalNotes:
+    "GÖCEK MOORING (TONOZ) SYSTEM — active since 2026: to protect the seagrass, the coves inside Göcek now use fixed mooring buoys instead of free anchoring. 1250 TL/night. Reservations open 1 month ahead; you're assigned a buoy sized to your boat (or told none is free). On arrival, call the mooring crew on VHF channel 71 — they tie you to the buoy and run your stern lines ashore too; call them again when leaving. Max 3 nights per buoy. Check-in/out like a hotel: in from 13:00, out by 12:00 next day. Crew on call 24/7. Source: deria.gov.tr",
   days: [
     {
-      id: "day-1", title: "Fethiye → Göcek Islands", date: "",
+      id: "day-1", title: "Depart Fethiye → Tersane Koyu", date: "15.08.2026",
       stops: [
-        { id: "s1", name: "Fethiye Harbor (departure)", lat: 36.6217, lng: 29.1164, time: "09:00", type: "town", notes: "" },
-        { id: "s2", name: "Yassıca Adaları (swim stop)", lat: 36.7213, lng: 29.0119, time: "", type: "swim", notes: "" },
-        { id: "s3", name: "Domuz Adası (overnight anchorage)", lat: 36.7423, lng: 28.9927, time: "", type: "anchorage", notes: "" },
+        { id: "s1", name: "Fethiye Harbor (departure)", lat: 36.6217, lng: 29.1164, time: "", type: "town", notes: "" },
+        { id: "s2", name: "Tersane Koyu", lat: 36.6684, lng: 28.9180, time: "", type: "anchorage", notes: "First night anchorage, next to Tersane Adası (Dockyard Island)." },
       ],
     },
     {
-      id: "day-2", title: "Göcek → Gemiler Island", date: "",
+      id: "day-2", title: "Bedri Rahmi Koyu", date: "16.08.2026",
       stops: [
-        { id: "s4", name: "Soğuksu (Cold Water Bay)", lat: 36.7736, lng: 28.9633, time: "", type: "swim", notes: "" },
-        { id: "s5", name: "Gemiler Island (sunken city / St. Nicholas)", lat: 36.5589, lng: 29.1364, time: "", type: "sight", notes: "" },
+        { id: "s3", name: "Bedri Rahmi Koyu", lat: 36.715, lng: 28.830, time: "", type: "anchorage",
+          notes: "⚠ Approximate pin — please confirm/reposition once you have exact bearings. To do: Bedri Rahmi Eyüboğlu rock paintings + Kral Mezarı (rock-cut king's tomb). Dinner: Miori — https://maps.app.goo.gl/RsWEk475oTUy6Xi26" },
       ],
     },
     {
-      id: "day-3", title: "Butterfly Valley & Ölüdeniz", date: "",
+      id: "day-3", title: "Hamam Koyu (Kleopatra)", date: "17.08.2026",
       stops: [
-        { id: "s6", name: "Butterfly Valley", lat: 36.5427, lng: 29.4991, time: "", type: "sight", notes: "" },
-        { id: "s7", name: "Ölüdeniz / Blue Lagoon", lat: 36.5501, lng: 29.1197, time: "", type: "swim", notes: "" },
+        { id: "s4", name: "Hamam Koyu — Kleopatra", lat: 36.7257, lng: 28.8131, time: "", type: "swim",
+          notes: "Cleopatra's bath / hot-spring swim stop (matched to \"Kapıkargın Kükürt Kaplıcası\" — double-check on arrival)." },
       ],
     },
     {
-      id: "day-4", title: "Kabak & Faralya", date: "",
+      id: "day-4", title: "Sarsala Koyu", date: "18.08.2026",
       stops: [
-        { id: "s8", name: "Kabak Bay", lat: 36.5183, lng: 29.4694, time: "", type: "anchorage", notes: "" },
+        { id: "s5", name: "Sarsala Koyu", lat: 36.6631, lng: 28.8499, time: "", type: "anchorage",
+          notes: "Dinner: Alperen Gözde Restaurant, Küçük Sarsala ☎ 0543 384 76 12 — https://maps.app.goo.gl/Qxsu9uMdsj592iZa6\nAlso consider Adaia Göcek — https://maps.app.goo.gl/Sx3hT6oy8eixZSJ6A (exact bay unconfirmed)." },
       ],
     },
     {
-      id: "day-5", title: "Return to Fethiye", date: "",
+      id: "day-5", title: "Büyük Ova Koyu", date: "19.08.2026",
       stops: [
-        { id: "s9", name: "Fethiye Old Town / Amyntas Rock Tombs", lat: 36.6252, lng: 29.1173, time: "", type: "sight", notes: "" },
-        { id: "s10", name: "Fethiye Harbor (return)", lat: 36.6217, lng: 29.1164, time: "", type: "town", notes: "" },
+        { id: "s6", name: "Büyük Ova Koyu", lat: 36.703168, lng: 28.898972, time: "", type: "anchorage", notes: "" },
+      ],
+    },
+    {
+      id: "day-6", title: "Gemiler Adası", date: "20.08.2026",
+      stops: [
+        { id: "s7", name: "Gemiler Adası", lat: 36.5533, lng: 29.0699, time: "", type: "sight",
+          notes: "Sunken city / St. Nicholas ruins. Tesis yok (no facilities on the island) — bring water, snacks, sun cover." },
+      ],
+    },
+    {
+      id: "day-7", title: "Free day — revisit a favourite bay", date: "21.08.2026",
+      stops: [],
+    },
+    {
+      id: "day-8", title: "Return to Fethiye", date: "22.08.2026",
+      stops: [
+        { id: "s8", name: "Fethiye Harbor (return)", lat: 36.6217, lng: 29.1164, time: "", type: "town", notes: "" },
       ],
     },
   ],
@@ -168,7 +186,7 @@ function renderMap() {
       marker.bindPopup(
         `<strong>${escapeHtml(stop.name)}</strong>` +
         (stop.time ? `<br><small>${escapeHtml(stop.time)}</small>` : "") +
-        (stop.notes ? `<br>${escapeHtml(stop.notes)}` : "")
+        (stop.notes ? `<br>${notesToHtml(stop.notes)}` : "")
       );
       marker.on("click", () => openStopModal({ dayId: day.id, stopId: stop.id }));
       marker.addTo(markerLayer);
@@ -193,6 +211,12 @@ function renderMap() {
 
 function escapeHtml(str) {
   return (str || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function notesToHtml(str) {
+  return escapeHtml(str)
+    .replace(/(https?:\/\/\S+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>')
+    .replace(/\n/g, "<br>");
 }
 
 // ---------------------------------------------------------------------------
@@ -249,13 +273,14 @@ function renderItinerary() {
         <div class="stop-main">
           <div class="stop-name">${escapeHtml(stop.name)}</div>
           ${stop.time ? `<div class="stop-time">${escapeHtml(stop.time)}</div>` : ""}
-          ${stop.notes ? `<div class="stop-notes">${escapeHtml(stop.notes)}</div>` : ""}
+          ${stop.notes ? `<div class="stop-notes">${notesToHtml(stop.notes)}</div>` : ""}
         </div>
         <div class="stop-reorder">
           <button class="up" title="Move up" ${si === 0 ? "disabled" : ""}>▲</button>
           <button class="down" title="Move down" ${si === day.stops.length - 1 ? "disabled" : ""}>▼</button>
         </div>
       `;
+      li.querySelectorAll(".stop-notes a").forEach((a) => a.addEventListener("click", (e) => e.stopPropagation()));
       li.querySelector(".stop-main").addEventListener("click", () => openStopModal({ dayId: day.id, stopId: stop.id }));
       li.querySelector(".stop-icon").addEventListener("click", () => openStopModal({ dayId: day.id, stopId: stop.id }));
       li.querySelector(".up").addEventListener("click", (e) => {
@@ -276,6 +301,7 @@ function renderItinerary() {
   });
 
   document.getElementById("tripTitle").value = trip.title || "Fethiye Boat Trip";
+  document.getElementById("generalNotes").value = trip.generalNotes || "";
   populateDaySelect();
 }
 
@@ -317,6 +343,8 @@ function openStopModal(ctx) {
     document.getElementById("stopTime").value = "";
     document.getElementById("stopNotes").value = "";
     document.getElementById("stopType").value = "sight";
+    document.getElementById("stopLat").value = ctx.lat.toFixed(5);
+    document.getElementById("stopLng").value = ctx.lng.toFixed(5);
     populateDaySelect();
     if (trip.days.length === 0) {
       trip.days.push({ id: uid(), title: "Day 1", date: "", stops: [] });
@@ -330,13 +358,13 @@ function openStopModal(ctx) {
     document.getElementById("stopTime").value = stop.time || "";
     document.getElementById("stopNotes").value = stop.notes || "";
     document.getElementById("stopType").value = stop.type || "sight";
+    document.getElementById("stopLat").value = stop.lat;
+    document.getElementById("stopLng").value = stop.lng;
     populateDaySelect();
     document.getElementById("stopDay").value = day.id;
   }
 
   overlay.classList.remove("hidden");
-  overlay.dataset.pendingLat = ctx.lat ?? "";
-  overlay.dataset.pendingLng = ctx.lng ?? "";
 }
 
 function closeModal() {
@@ -354,13 +382,16 @@ function saveStopFromModal() {
   const time = document.getElementById("stopTime").value.trim();
   const type = document.getElementById("stopType").value;
   const notes = document.getElementById("stopNotes").value.trim();
-  const overlay = document.getElementById("modalOverlay");
+  const lat = parseFloat(document.getElementById("stopLat").value);
+  const lng = parseFloat(document.getElementById("stopLng").value);
+  if (isNaN(lat) || isNaN(lng)) {
+    alert("Coordinates must be numbers.");
+    return;
+  }
 
   const targetDay = trip.days.find((d) => d.id === dayId);
 
   if (!editingContext.stopId) {
-    const lat = parseFloat(overlay.dataset.pendingLat);
-    const lng = parseFloat(overlay.dataset.pendingLng);
     targetDay.stops.push({ id: uid(), name, lat, lng, time, type, notes });
   } else {
     const originDay = trip.days.find((d) => d.id === editingContext.dayId);
@@ -370,6 +401,8 @@ function saveStopFromModal() {
     stop.time = time;
     stop.type = type;
     stop.notes = notes;
+    stop.lat = lat;
+    stop.lng = lng;
     if (originDay.id !== dayId) {
       originDay.stops.splice(idx, 1);
       targetDay.stops.push(stop);
@@ -407,6 +440,11 @@ function wireUi() {
 
   document.getElementById("tripTitle").addEventListener("change", (e) => {
     trip.title = e.target.value;
+    commit();
+  });
+
+  document.getElementById("generalNotes").addEventListener("change", (e) => {
+    trip.generalNotes = e.target.value;
     commit();
   });
 
