@@ -169,7 +169,7 @@ html, body {
 }
 
 #sidebar {
-  width: 340px;
+  width: clamp(340px, 30vw, 480px);
   flex: 0 0 auto;
   background: white;
   border-right: 1px solid var(--line);
@@ -248,11 +248,17 @@ html, body {
 
 .day-header {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 6px;
   background: var(--sea);
   color: white;
   padding: 8px 10px;
+}
+
+.day-header-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .day-header input.day-title {
@@ -263,6 +269,7 @@ html, body {
   font-weight: 600;
   font-size: 0.95rem;
   min-width: 0;
+  padding: 2px 0;
 }
 .day-header input.day-date {
   background: rgba(255,255,255,.15);
@@ -270,8 +277,9 @@ html, body {
   color: white;
   font-size: 0.8rem;
   border-radius: 6px;
-  padding: 2px 6px;
-  width: 100px;
+  padding: 3px 7px;
+  width: auto;
+  max-width: 140px;
 }
 
 .day-header button {
@@ -281,6 +289,7 @@ html, body {
   cursor: pointer;
   font-size: 0.95rem;
   padding: 4px;
+  flex: 0 0 auto;
 }
 .day-header button:hover { color: white; }
 

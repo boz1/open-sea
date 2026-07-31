@@ -232,6 +232,9 @@ function enterSession(id, name) {
     render();
   });
   renderMap._fitted = false;
+  // The map was initialized while #app was display:none, so Leaflet measured
+  // a zero-size container; now that it's visible, force it to re-measure.
+  setTimeout(() => map.invalidateSize(), 50);
 }
 
 function wireLanding() {
@@ -379,9 +382,13 @@ function renderItinerary() {
     const header = document.createElement("div");
     header.className = "day-header";
     header.innerHTML = `
-      <input class="day-title" value="${escapeHtml(day.title)}" />
-      <input class="day-date" type="text" placeholder="date" value="${escapeHtml(day.date || "")}" />
-      <button class="del-day" title="Delete day">✕</button>
+      <div class="day-header-row">
+        <input class="day-title" value="${escapeHtml(day.title)}" />
+        <button class="del-day" title="Delete day">✕</button>
+      </div>
+      <div class="day-header-row">
+        <input class="day-date" type="text" placeholder="date" value="${escapeHtml(day.date || "")}" />
+      </div>
     `;
     header.querySelector(".day-title").addEventListener("change", (e) => {
       day.title = e.target.value;
