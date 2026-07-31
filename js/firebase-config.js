@@ -13,10 +13,10 @@
 // ---------------------------------------------------------------------------
 
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBI_xzgMMZNPhDTJcOPjPw-cYq2xDOyTro",
+  authDomain: "open-sea-d881a.firebaseapp.com",
+  projectId: "open-sea-d881a",
+  storageBucket: "open-sea-d881a.firebasestorage.app",
+  messagingSenderId: "523277541390",
+  appId: "1:523277541390:web:3bde3648824d22c56c5c5f"
 };
