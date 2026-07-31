@@ -410,6 +410,18 @@ html, body {
   text-overflow: ellipsis;
 }
 
+.day-weather {
+  font-size: 0.76rem;
+  color: rgba(255,255,255,.9);
+}
+.day-weather.muted {
+  color: rgba(255,255,255,.55);
+  font-style: italic;
+}
+.day-weather.loading {
+  color: rgba(255,255,255,.6);
+}
+
 .stop-list {
   list-style: none;
   margin: 0;

@@ -666,6 +666,111 @@ function notesToHtml(str) {
 }
 
 // ---------------------------------------------------------------------------
+// Weather (Open-Meteo — free, no API key, CORS-open)
+// ---------------------------------------------------------------------------
+
+const WEATHER_CODES = {
+  0: "☀️", 1: "🌤️", 2: "⛅", 3: "☁️",
+  45: "🌫️", 48: "🌫️",
+  51: "🌦️", 53: "🌦️", 55: "🌧️",
+  56: "🌧️", 57: "🌧️",
+  61: "🌦️", 63: "🌧️", 65: "🌧️",
+  66: "🌧️", 67: "🌧️",
+  71: "🌨️", 73: "🌨️", 75: "❄️", 77: "🌨️",
+  80: "🌦️", 81: "🌧️", 82: "⛈️",
+  85: "🌨️", 86: "❄️",
+  95: "⛈️", 96: "⛈️", 99: "⛈️",
+};
+const WIND_COMPASS = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+
+function windDirLabel(deg) {
+  if (deg == null) return "";
+  return WIND_COMPASS[Math.round(deg / 22.5) % 16];
+}
+
+const weatherCache = {};
+
+function weatherKey(lat, lng, dateStr) {
+  return `${lat.toFixed(2)},${lng.toFixed(2)},${dateStr}`;
+}
+
+async function fetchWeather(lat, lng, dateStr) {
+  const key = weatherKey(lat, lng, dateStr);
+  if (weatherCache[key]) return weatherCache[key];
+
+  const target = new Date(dateStr + "T00:00:00");
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((target - today) / 86400000);
+
+  // General forecast covers 16 days out; marine (wave) forecast only 8.
+  if (isNaN(diffDays) || diffDays < 0 || diffDays > 15) {
+    return (weatherCache[key] = { status: "unavailable" });
+  }
+
+  weatherCache[key] = { status: "loading" };
+  try {
+    const [wx, mx] = await Promise.all([
+      fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}` +
+        `&daily=weather_code,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant` +
+        `&wind_speed_unit=kn&timezone=auto&start_date=${dateStr}&end_date=${dateStr}`
+      ).then((r) => r.json()),
+      diffDays <= 7
+        ? fetch(
+            `https://marine-api.open-meteo.com/v1/marine?latitude=${lat}&longitude=${lng}` +
+            `&daily=wave_height_max&timezone=auto&start_date=${dateStr}&end_date=${dateStr}`
+          ).then((r) => r.json()).catch(() => null)
+        : Promise.resolve(null),
+    ]);
+    const d = wx.daily || {};
+    return (weatherCache[key] = {
+      status: "ready",
+      code: d.weather_code ? d.weather_code[0] : null,
+      windKn: d.wind_speed_10m_max ? d.wind_speed_10m_max[0] : null,
+      gustKn: d.wind_gusts_10m_max ? d.wind_gusts_10m_max[0] : null,
+      windDir: d.wind_direction_10m_dominant ? d.wind_direction_10m_dominant[0] : null,
+      waveM: mx && mx.daily && mx.daily.wave_height_max ? mx.daily.wave_height_max[0] : null,
+    });
+  } catch (err) {
+    console.error("Weather fetch failed", err);
+    return (weatherCache[key] = { status: "error" });
+  }
+}
+
+// Returns whatever's in the cache right now, kicking off a fetch (and a
+// re-render once it lands) the first time a given spot/date is seen.
+function getWeatherSync(lat, lng, dateStr) {
+  const key = weatherKey(lat, lng, dateStr);
+  if (!weatherCache[key]) {
+    fetchWeather(lat, lng, dateStr).then(() => render());
+  }
+  return weatherCache[key];
+}
+
+function weatherHtmlFor(day) {
+  const stop = day.stops[0];
+  if (!stop || !/^\d{4}-\d{2}-\d{2}$/.test(day.date || "")) return "";
+
+  const w = getWeatherSync(stop.lat, stop.lng, day.date);
+  if (!w || w.status === "loading") {
+    return `<span class="day-weather loading">⏳ loading forecast…</span>`;
+  }
+  if (w.status === "unavailable") {
+    return `<span class="day-weather muted">Forecast opens ~16 days before this date</span>`;
+  }
+  if (w.status === "error") {
+    return `<span class="day-weather muted">Weather unavailable</span>`;
+  }
+  const wind = w.windKn != null ? `${Math.round(w.windKn)}kn ${windDirLabel(w.windDir)}` : "";
+  const wave = w.waveM != null ? ` · 🌊${w.waveM.toFixed(1)}m` : "";
+  const title =
+    `Wind ${Math.round(w.windKn ?? 0)}kn (gusts ${Math.round(w.gustKn ?? 0)}kn) from ${windDirLabel(w.windDir)}` +
+    (w.waveM != null ? `, waves ${w.waveM.toFixed(1)}m` : "");
+  return `<span class="day-weather" title="${escapeHtml(title)}">${WEATHER_CODES[w.code] || "〰️"} ${wind}${wave}</span>`;
+}
+
+// ---------------------------------------------------------------------------
 // Sidebar / itinerary
 // ---------------------------------------------------------------------------
 
@@ -683,6 +788,7 @@ function renderItinerary() {
     header.className = "day-header";
     const nm = dayDistanceNm(trip.days, di);
     const estimate = nm > 0 ? `≈ ${formatDuration(nm / currentSpeedKnots())} · ${nm.toFixed(1)} nm` : "";
+    const weatherHtml = weatherHtmlFor(day);
     header.innerHTML = `
       <div class="day-header-row">
         <input class="day-title" value="${escapeHtml(day.title)}" />
@@ -692,6 +798,7 @@ function renderItinerary() {
         <input class="day-date" type="date" value="${escapeHtml(day.date || "")}" />
         ${estimate ? `<span class="day-estimate" title="Estimated underway time at ${currentSpeedKnots()} kn">${estimate}</span>` : ""}
       </div>
+      ${weatherHtml ? `<div class="day-header-row">${weatherHtml}</div>` : ""}
     `;
     header.querySelector(".day-title").addEventListener("change", (e) => {
       day.title = e.target.value;
@@ -922,12 +1029,6 @@ function wireUi() {
     // being "harmlessly inert" isn't worth the risk.
     const isMobileLayout = window.matchMedia("(max-width: 820px)").matches;
     sidebar.classList.toggle(isMobileLayout ? "open" : "collapsed");
-    // TEMPORARY debug aid — remove once the mobile Safari sidebar issue is diagnosed.
-    const r = sidebar.getBoundingClientRect();
-    alert(
-      `mobile=${isMobileLayout}\nclasses="${sidebar.className}"\nwinWidth=${window.innerWidth}\n` +
-      `rect=x:${Math.round(r.x)} y:${Math.round(r.y)} w:${Math.round(r.width)} h:${Math.round(r.height)}`
-    );
     setTimeout(() => map.invalidateSize(), 220);
   });
 
