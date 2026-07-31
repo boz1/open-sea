@@ -705,10 +705,10 @@ async function fetchWeather(lat, lng, dateStr) {
 
   // General forecast covers 16 days out; marine (wave) forecast only 8.
   if (isNaN(diffDays) || diffDays < 0 || diffDays > 15) {
-    return (weatherCache[key] = { status: "unavailable" });
+    return (weatherCache[key] = { status: "unavailable", checkedAt: Date.now() });
   }
 
-  weatherCache[key] = { status: "loading" };
+  weatherCache[key] = { status: "loading", checkedAt: Date.now() };
   try {
     const [wx, mx] = await Promise.all([
       fetch(
@@ -726,6 +726,7 @@ async function fetchWeather(lat, lng, dateStr) {
     const d = wx.daily || {};
     return (weatherCache[key] = {
       status: "ready",
+      checkedAt: Date.now(),
       code: d.weather_code ? d.weather_code[0] : null,
       windKn: d.wind_speed_10m_max ? d.wind_speed_10m_max[0] : null,
       gustKn: d.wind_gusts_10m_max ? d.wind_gusts_10m_max[0] : null,
@@ -734,15 +735,28 @@ async function fetchWeather(lat, lng, dateStr) {
     });
   } catch (err) {
     console.error("Weather fetch failed", err);
-    return (weatherCache[key] = { status: "error" });
+    return (weatherCache[key] = { status: "error", checkedAt: Date.now() });
   }
 }
 
+// A day that's too far out today won't be too far out forever, so
+// "unavailable"/"error" results expire and get rechecked — otherwise a tab
+// left open across days would keep showing a stale "not available yet"
+// long after the forecast actually opened up.
+const WEATHER_STALE_MS = 30 * 60 * 1000;
+
 // Returns whatever's in the cache right now, kicking off a fetch (and a
-// re-render once it lands) the first time a given spot/date is seen.
+// re-render once it lands) the first time a given spot/date is seen, or
+// once a stale non-final result has expired.
 function getWeatherSync(lat, lng, dateStr) {
   const key = weatherKey(lat, lng, dateStr);
-  if (!weatherCache[key]) {
+  const cached = weatherCache[key];
+  const stale =
+    cached &&
+    (cached.status === "unavailable" || cached.status === "error") &&
+    Date.now() - cached.checkedAt > WEATHER_STALE_MS;
+  if (!cached || stale) {
+    delete weatherCache[key];
     fetchWeather(lat, lng, dateStr).then(() => render());
   }
   return weatherCache[key];
@@ -1100,4 +1114,14 @@ window.addEventListener("DOMContentLoaded", async () => {
   } else {
     showLanding();
   }
+
+  // Re-render on a timer and whenever the tab regains focus, so a session
+  // left open across days picks up newly-in-range weather forecasts
+  // without needing a manual reload.
+  setInterval(() => {
+    if (currentSessionId) render();
+  }, 30 * 60 * 1000);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && currentSessionId) render();
+  });
 });
