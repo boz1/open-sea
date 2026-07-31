@@ -430,6 +430,21 @@ html, body {
   box-shadow: inset 3px 0 0 0 var(--coral);
 }
 
+.stop-seq-badge {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--deep);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+
 .stop-icon {
   flex: 0 0 auto;
   font-size: 1.1rem;
@@ -554,6 +569,29 @@ html, body {
 .spacer { flex: 1; }
 
 /* Leaflet marker label */
+.stop-wrap {
+  position: relative;
+  width: 30px;
+  height: 30px;
+}
+.stop-seq {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: white;
+  color: var(--deep);
+  border: 1.5px solid var(--deep);
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,.35);
+  line-height: 1;
+}
 .stop-divicon {
   display: flex;
   align-items: center;

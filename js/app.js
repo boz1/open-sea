@@ -215,6 +215,7 @@ function showLanding() {
   document.getElementById("createForm").reset();
   document.getElementById("joinForm").classList.remove("hidden");
   document.getElementById("joinName").readOnly = false;
+  delete document.getElementById("joinName").dataset.sessionId;
   document.getElementById("joinNameHint").classList.add("hidden");
   document.getElementById("createForm").classList.remove("hidden");
   document.getElementById("createSuccess").classList.add("hidden");
@@ -237,6 +238,11 @@ async function copyToClipboard(text) {
 
 // If the page was opened via a shared link (?session=slug), pre-fill and
 // lock the join form's name field so the friend only has to type the password.
+// The field is filled with the session's *display title* for readability,
+// but the actual lookup key (its immutable slug) is stashed in a data
+// attribute — title and slug can diverge once someone renames a trip after
+// creating it, so the join handler must not re-derive the key by
+// re-slugifying whatever text is shown.
 async function applyShareLinkPrefill() {
   const sessionParam = new URLSearchParams(location.search).get("session");
   if (!sessionParam) return;
@@ -246,6 +252,7 @@ async function applyShareLinkPrefill() {
   const nameField = document.getElementById("joinName");
   nameField.value = data.title || sessionParam;
   nameField.readOnly = true;
+  nameField.dataset.sessionId = id;
   const hint = document.getElementById("joinNameHint");
   hint.textContent = `Joining "${data.title || sessionParam}" — just enter the password.`;
   hint.classList.remove("hidden");
@@ -316,9 +323,13 @@ function wireLanding() {
     e.preventDefault();
     const errEl = document.getElementById("joinError");
     errEl.classList.add("hidden");
-    const rawName = document.getElementById("joinName").value.trim();
+    const nameField = document.getElementById("joinName");
+    const rawName = nameField.value.trim();
     const password = document.getElementById("joinPassword").value;
-    const id = slugify(rawName);
+    // If this field was locked by a share link, its lookup key was stashed
+    // directly — re-slugifying the displayed title could produce a
+    // different string if the trip was renamed after creation.
+    const id = nameField.dataset.sessionId || slugify(rawName);
     if (!id) return;
 
     const data = await fetchSessionOnce(id);
@@ -422,11 +433,16 @@ function initMap() {
   });
 }
 
-function stopDivIcon(type) {
+function stopDivIcon(type, seq) {
   const t = STOP_TYPES[type] || STOP_TYPES.sight;
   return L.divIcon({
     className: "",
-    html: `<div class="stop-divicon" style="background:${t.color}"><span>${t.icon}</span></div>`,
+    html: `
+      <div class="stop-wrap">
+        <div class="stop-divicon" style="background:${t.color}"><span>${t.icon}</span></div>
+        <div class="stop-seq">${seq}</div>
+      </div>
+    `,
     iconSize: [30, 30],
     iconAnchor: [15, 30],
     popupAnchor: [0, -28],
@@ -458,8 +474,8 @@ function renderMap() {
   const bounds = [];
   const flat = flattenStops(trip.days);
 
-  flat.forEach(({ stop, day }) => {
-    const marker = L.marker([stop.lat, stop.lng], { icon: stopDivIcon(stop.type) });
+  flat.forEach(({ stop, day }, i) => {
+    const marker = L.marker([stop.lat, stop.lng], { icon: stopDivIcon(stop.type, i + 1) });
     marker.bindPopup(buildPopupHtml(stop), { closeButton: true, autoClose: false, closeOnClick: false, offset: [0, -4] });
 
     let closeTimer = null;
@@ -609,6 +625,7 @@ function renderItinerary() {
   const list = document.getElementById("dayList");
   list.innerHTML = "";
   stopListItems = {};
+  let globalSeq = 0;
 
   trip.days.forEach((day, di) => {
     const card = document.createElement("div");
@@ -655,10 +672,12 @@ function renderItinerary() {
     }
 
     day.stops.forEach((stop, si) => {
+      globalSeq++;
       const li = document.createElement("li");
       li.className = "stop-item";
       const t = STOP_TYPES[stop.type] || STOP_TYPES.sight;
       li.innerHTML = `
+        <span class="stop-seq-badge">${globalSeq}</span>
         <span class="stop-icon">${t.icon}</span>
         <div class="stop-main">
           <div class="stop-name">${escapeHtml(stop.name)}</div>
