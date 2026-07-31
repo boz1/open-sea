@@ -1035,7 +1035,15 @@ function deleteStopFromModal() {
 // ---------------------------------------------------------------------------
 
 function wireUi() {
-  document.getElementById("menuToggle").addEventListener("click", () => {
+  document.getElementById("menuToggle").addEventListener("click", (e) => {
+    // TEMPORARY non-blocking debug aid — remove once the mobile Safari
+    // sidebar issue is resolved. Confirms the click reaches JS at all,
+    // independent of anything sidebar-CSS-related (no alert(), so it
+    // can't interfere with any pending transition/repaint).
+    const btn = e.currentTarget;
+    btn.style.outline = "4px solid red";
+    setTimeout(() => (btn.style.outline = ""), 1000);
+
     const sidebar = document.getElementById("sidebar");
     // "open" drives the mobile slide-over drawer, "collapsed" drives the
     // desktop width collapse. Pick the one that actually matters for the
