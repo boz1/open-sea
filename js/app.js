@@ -162,6 +162,18 @@ function forget(id) {
   localStorage.setItem(REMEMBER_KEY, JSON.stringify(all));
 }
 
+// Keeps the "Your sessions" quick-access label in sync with the trip's
+// current title. Without this, the landing screen would keep showing
+// whatever name was typed at the moment you first joined/created it, even
+// after it's renamed (by you or a collaborator).
+function refreshRememberedName(id, title) {
+  const all = getRemembered();
+  if (all[id] && title && all[id].name !== title) {
+    all[id].name = title;
+    localStorage.setItem(REMEMBER_KEY, JSON.stringify(all));
+  }
+}
+
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
@@ -309,6 +321,7 @@ function enterSession(id, name) {
       }
     });
     if (needsSave) saveSession(currentSessionId, trip);
+    refreshRememberedName(id, trip.title);
     render();
   });
   renderMap._fitted = false;
