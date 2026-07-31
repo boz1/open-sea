@@ -922,6 +922,12 @@ function wireUi() {
     // being "harmlessly inert" isn't worth the risk.
     const isMobileLayout = window.matchMedia("(max-width: 820px)").matches;
     sidebar.classList.toggle(isMobileLayout ? "open" : "collapsed");
+    // TEMPORARY debug aid — remove once the mobile Safari sidebar issue is diagnosed.
+    const r = sidebar.getBoundingClientRect();
+    alert(
+      `mobile=${isMobileLayout}\nclasses="${sidebar.className}"\nwinWidth=${window.innerWidth}\n` +
+      `rect=x:${Math.round(r.x)} y:${Math.round(r.y)} w:${Math.round(r.width)} h:${Math.round(r.height)}`
+    );
     setTimeout(() => map.invalidateSize(), 220);
   });
 
