@@ -21,7 +21,8 @@ html, body {
 }
 
 #app {
-  height: 100vh;
+  height: 100vh; /* fallback for browsers without dvh support */
+  height: 100dvh; /* iOS Safari: accounts for the collapsing toolbar, unlike 100vh */
   display: flex;
   flex-direction: column;
 }
@@ -29,6 +30,7 @@ html, body {
 /* Landing / session gate */
 .landing {
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
