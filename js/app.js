@@ -164,6 +164,19 @@ let unsubscribeSession = null;
 let map, markerLayer;
 let addStopMode = false;
 let editingContext = null; // { dayId, stopId } or { dayId } for new stop
+let stopMarkers = {}; // stopId -> L.Marker
+let stopListItems = {}; // stopId -> <li> element
+
+function highlightStop(stopId, on) {
+  const marker = stopMarkers[stopId];
+  if (marker) {
+    const el = marker.getElement();
+    const inner = el && el.querySelector(".stop-divicon");
+    if (inner) inner.classList.toggle("marker-highlight", on);
+  }
+  const li = stopListItems[stopId];
+  if (li) li.classList.toggle("stop-highlight", on);
+}
 
 function uid() {
   return "id-" + Math.random().toString(36).slice(2, 10);
@@ -282,7 +295,15 @@ function wireLanding() {
       return;
     }
     const hash = await hashPassword(password);
-    const data = { title: rawName, generalNotes: "", days: [], passwordHash: hash, createdAt: Date.now() };
+    const data = {
+      title: rawName,
+      generalNotes: "",
+      boatType: "catamaran",
+      boatSpeedKnots: BOAT_PRESETS.catamaran.knots,
+      days: [],
+      passwordHash: hash,
+      createdAt: Date.now(),
+    };
     await createSessionDoc(id, data);
     remember(id, hash, rawName);
     enterSession(id, rawName);
@@ -321,23 +342,66 @@ function stopDivIcon(type) {
   });
 }
 
+function buildPopupHtml(stop) {
+  return `
+    <div class="stop-popup">
+      <strong>${escapeHtml(stop.name)}</strong>
+      ${stop.time ? `<div class="popup-time">${escapeHtml(stop.time)}</div>` : ""}
+      ${stop.notes ? `<div class="popup-notes">${notesToHtml(stop.notes)}</div>` : ""}
+      <button type="button" class="popup-edit-btn">✏️ Edit</button>
+    </div>
+  `;
+}
+
 const DAY_LINE_COLORS = ["#e0674b", "#4fa3c4", "#6a9e4a", "#c48fd6", "#d6a24f", "#5a6b73"];
 
 function renderMap() {
   markerLayer.clearLayers();
+  stopMarkers = {};
   const bounds = [];
 
   trip.days.forEach((day, di) => {
     const latlngs = [];
     day.stops.forEach((stop) => {
       const marker = L.marker([stop.lat, stop.lng], { icon: stopDivIcon(stop.type) });
-      marker.bindPopup(
-        `<strong>${escapeHtml(stop.name)}</strong>` +
-        (stop.time ? `<br><small>${escapeHtml(stop.time)}</small>` : "") +
-        (stop.notes ? `<br>${notesToHtml(stop.notes)}` : "")
-      );
-      marker.on("click", () => openStopModal({ dayId: day.id, stopId: stop.id }));
+      marker.bindPopup(buildPopupHtml(stop), { closeButton: true, autoClose: false, closeOnClick: false, offset: [0, -4] });
+
+      let closeTimer = null;
+      const openNow = () => {
+        clearTimeout(closeTimer);
+        marker.openPopup();
+      };
+      const closeSoon = () => {
+        closeTimer = setTimeout(() => marker.closePopup(), 200);
+      };
+
+      marker.on("mouseover", () => {
+        openNow();
+        highlightStop(stop.id, true);
+      });
+      marker.on("mouseout", () => {
+        closeSoon();
+        highlightStop(stop.id, false);
+      });
+      // Clicking (or tapping, on touch devices) just reveals the popup —
+      // editing requires the explicit Edit button inside it.
+      marker.on("click", openNow);
+      marker.on("popupopen", (e) => {
+        const el = e.popup.getElement();
+        const btn = el.querySelector(".popup-edit-btn");
+        if (btn) {
+          btn.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            marker.closePopup();
+            openStopModal({ dayId: day.id, stopId: stop.id });
+          });
+        }
+        el.addEventListener("mouseenter", () => clearTimeout(closeTimer));
+        el.addEventListener("mouseleave", closeSoon);
+      });
+
       marker.addTo(markerLayer);
+      stopMarkers[stop.id] = marker;
       latlngs.push([stop.lat, stop.lng]);
       bounds.push([stop.lat, stop.lng]);
     });
@@ -357,6 +421,47 @@ function renderMap() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Distance / duration estimates
+// ---------------------------------------------------------------------------
+
+const BOAT_PRESETS = {
+  catamaran: { label: "Catamaran", knots: 7 },
+  monohull: { label: "Monohull sailboat", knots: 6 },
+  gulet: { label: "Gulet / motor yacht", knots: 8 },
+  motorboat: { label: "Motorboat", knots: 20 },
+  other: { label: "Other", knots: 7 },
+};
+
+function haversineNm(a, b) {
+  const R_KM = 6371;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const x =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  const km = R_KM * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+  return km / 1.852;
+}
+
+function dayDistanceNm(day) {
+  let nm = 0;
+  for (let i = 1; i < day.stops.length; i++) nm += haversineNm(day.stops[i - 1], day.stops[i]);
+  return nm;
+}
+
+function formatDuration(hours) {
+  const totalMin = Math.round(hours * 60);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return (h > 0 ? h + "h " : "") + m + "m";
+}
+
+function currentSpeedKnots() {
+  return trip.boatSpeedKnots || BOAT_PRESETS[trip.boatType]?.knots || 7;
+}
+
 function escapeHtml(str) {
   return (str || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
@@ -374,6 +479,7 @@ function notesToHtml(str) {
 function renderItinerary() {
   const list = document.getElementById("dayList");
   list.innerHTML = "";
+  stopListItems = {};
 
   trip.days.forEach((day, di) => {
     const card = document.createElement("div");
@@ -381,6 +487,8 @@ function renderItinerary() {
 
     const header = document.createElement("div");
     header.className = "day-header";
+    const nm = dayDistanceNm(day);
+    const estimate = nm > 0 ? `≈ ${formatDuration(nm / currentSpeedKnots())} · ${nm.toFixed(1)} nm` : "";
     header.innerHTML = `
       <div class="day-header-row">
         <input class="day-title" value="${escapeHtml(day.title)}" />
@@ -388,6 +496,7 @@ function renderItinerary() {
       </div>
       <div class="day-header-row">
         <input class="day-date" type="text" placeholder="date" value="${escapeHtml(day.date || "")}" />
+        ${estimate ? `<span class="day-estimate" title="Estimated underway time at ${currentSpeedKnots()} kn">${estimate}</span>` : ""}
       </div>
     `;
     header.querySelector(".day-title").addEventListener("change", (e) => {
@@ -435,6 +544,9 @@ function renderItinerary() {
       li.querySelectorAll(".stop-notes a").forEach((a) => a.addEventListener("click", (e) => e.stopPropagation()));
       li.querySelector(".stop-main").addEventListener("click", () => openStopModal({ dayId: day.id, stopId: stop.id }));
       li.querySelector(".stop-icon").addEventListener("click", () => openStopModal({ dayId: day.id, stopId: stop.id }));
+      li.addEventListener("mouseenter", () => highlightStop(stop.id, true));
+      li.addEventListener("mouseleave", () => highlightStop(stop.id, false));
+      stopListItems[stop.id] = li;
       li.querySelector(".up").addEventListener("click", (e) => {
         e.stopPropagation();
         [day.stops[si - 1], day.stops[si]] = [day.stops[si], day.stops[si - 1]];
@@ -454,6 +566,11 @@ function renderItinerary() {
 
   document.getElementById("tripTitle").value = trip.title || "Boat Trip";
   document.getElementById("generalNotes").value = trip.generalNotes || "";
+  document.getElementById("boatType").value = trip.boatType || "catamaran";
+  document.getElementById("boatSpeed").value = currentSpeedKnots();
+  const totalNm = trip.days.reduce((sum, d) => sum + dayDistanceNm(d), 0);
+  document.getElementById("boatTotalEstimate").textContent =
+    totalNm > 0 ? `Estimated total underway time: ${formatDuration(totalNm / currentSpeedKnots())} over ${totalNm.toFixed(1)} nm` : "";
   populateDaySelect();
 }
 
@@ -597,6 +714,18 @@ function wireUi() {
 
   document.getElementById("generalNotes").addEventListener("change", (e) => {
     trip.generalNotes = e.target.value;
+    commit();
+  });
+
+  document.getElementById("boatType").addEventListener("change", (e) => {
+    trip.boatType = e.target.value;
+    trip.boatSpeedKnots = BOAT_PRESETS[trip.boatType].knots;
+    commit();
+  });
+
+  document.getElementById("boatSpeed").addEventListener("change", (e) => {
+    const v = parseFloat(e.target.value);
+    if (!isNaN(v) && v > 0) trip.boatSpeedKnots = v;
     commit();
   });
 

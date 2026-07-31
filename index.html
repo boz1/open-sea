@@ -56,6 +56,24 @@
           <summary>📋 Trip notes</summary>
           <textarea id="generalNotes" rows="6" placeholder="Shared notes for everyone (logistics, mooring info, etc.)"></textarea>
         </details>
+        <details id="boatBox" class="notes-box" open>
+          <summary>⛵ Boat &amp; speed</summary>
+          <div class="boat-settings">
+            <label>Boat type
+              <select id="boatType">
+                <option value="catamaran">Catamaran</option>
+                <option value="monohull">Monohull sailboat</option>
+                <option value="gulet">Gulet / motor yacht</option>
+                <option value="motorboat">Motorboat</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label>Avg. speed (knots)
+              <input id="boatSpeed" type="number" step="0.5" min="1" />
+            </label>
+            <div id="boatTotalEstimate" class="boat-total"></div>
+          </div>
+        </details>
         <div id="dayList"></div>
         <button id="addDayBtn" class="btn btn-secondary">+ Add Day</button>
       </div>
