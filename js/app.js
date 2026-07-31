@@ -1,8 +1,17 @@
 // ---------------------------------------------------------------------------
-// Fethiye Boat Trip planner
-// Single shared document ({days:[{stops:[...]}]}) synced live via Firestore
-// when firebase-config.js has real keys; otherwise falls back to
-// localStorage (single device only).
+// Open Sea — boat trip planner
+// Multiple named "sessions" (one per trip), each gated by a password chosen
+// at creation. Each session is its own document: {title, generalNotes, days:
+// [{stops:[...]}]}, synced live via Firestore when firebase-config.js has
+// real keys; otherwise falls back to localStorage (single device only).
+//
+// The password gate is a lightweight name+password check done in the
+// browser (password is hashed with SHA-256 before comparing/storing) — it
+// keeps casual visitors and unrelated trip groups from wandering into each
+// other's sessions. It is NOT real security: with Firestore rules open
+// (read/write: if true, as documented in the README), anyone who queries
+// the database directly could still read the raw documents. Don't put
+// anything sensitive in a session.
 // ---------------------------------------------------------------------------
 
 const STOP_TYPES = {
@@ -13,74 +22,76 @@ const STOP_TYPES = {
   food:      { icon: "🍽️", color: "#5a8a4b" },
 };
 
-const DEFAULT_TRIP = {
-  title: "Fethiye Boat Trip",
-  generalNotes:
-    "GÖCEK MOORING (TONOZ) SYSTEM — active since 2026: to protect the seagrass, the coves inside Göcek now use fixed mooring buoys instead of free anchoring. 1250 TL/night. Reservations open 1 month ahead; you're assigned a buoy sized to your boat (or told none is free). On arrival, call the mooring crew on VHF channel 71 — they tie you to the buoy and run your stern lines ashore too; call them again when leaving. Max 3 nights per buoy. Check-in/out like a hotel: in from 13:00, out by 12:00 next day. Crew on call 24/7. Source: deria.gov.tr",
-  days: [
-    {
-      id: "day-1", title: "Depart Fethiye → Tersane Koyu", date: "15.08.2026",
-      stops: [
-        { id: "s1", name: "Fethiye Harbor (departure)", lat: 36.6217, lng: 29.1164, time: "", type: "town", notes: "" },
-        { id: "s2", name: "Tersane Koyu", lat: 36.6684, lng: 28.9180, time: "", type: "anchorage", notes: "First night anchorage, next to Tersane Adası (Dockyard Island)." },
-      ],
-    },
-    {
-      id: "day-2", title: "Bedri Rahmi Koyu", date: "16.08.2026",
-      stops: [
-        { id: "s3", name: "Bedri Rahmi Koyu", lat: 36.715, lng: 28.830, time: "", type: "anchorage",
-          notes: "⚠ Approximate pin — please confirm/reposition once you have exact bearings. To do: Bedri Rahmi Eyüboğlu rock paintings + Kral Mezarı (rock-cut king's tomb). Dinner: Miori — https://maps.app.goo.gl/RsWEk475oTUy6Xi26" },
-      ],
-    },
-    {
-      id: "day-3", title: "Hamam Koyu (Kleopatra)", date: "17.08.2026",
-      stops: [
-        { id: "s4", name: "Hamam Koyu — Kleopatra", lat: 36.7257, lng: 28.8131, time: "", type: "swim",
-          notes: "Cleopatra's bath / hot-spring swim stop (matched to \"Kapıkargın Kükürt Kaplıcası\" — double-check on arrival)." },
-      ],
-    },
-    {
-      id: "day-4", title: "Sarsala Koyu", date: "18.08.2026",
-      stops: [
-        { id: "s5", name: "Sarsala Koyu", lat: 36.6631, lng: 28.8499, time: "", type: "anchorage",
-          notes: "Dinner: Alperen Gözde Restaurant, Küçük Sarsala ☎ 0543 384 76 12 — https://maps.app.goo.gl/Qxsu9uMdsj592iZa6\nAlso consider Adaia Göcek — https://maps.app.goo.gl/Sx3hT6oy8eixZSJ6A (exact bay unconfirmed)." },
-      ],
-    },
-    {
-      id: "day-5", title: "Büyük Ova Koyu", date: "19.08.2026",
-      stops: [
-        { id: "s6", name: "Büyük Ova Koyu", lat: 36.703168, lng: 28.898972, time: "", type: "anchorage", notes: "" },
-      ],
-    },
-    {
-      id: "day-6", title: "Gemiler Adası", date: "20.08.2026",
-      stops: [
-        { id: "s7", name: "Gemiler Adası", lat: 36.5533, lng: 29.0699, time: "", type: "sight",
-          notes: "Sunken city / St. Nicholas ruins. Tesis yok (no facilities on the island) — bring water, snacks, sun cover." },
-      ],
-    },
-    {
-      id: "day-7", title: "Free day — revisit a favourite bay", date: "21.08.2026",
-      stops: [],
-    },
-    {
-      id: "day-8", title: "Return to Fethiye", date: "22.08.2026",
-      stops: [
-        { id: "s8", name: "Fethiye Harbor (return)", lat: 36.6217, lng: 29.1164, time: "", type: "town", notes: "" },
-      ],
-    },
-  ],
-};
-
 // ---------------------------------------------------------------------------
-// Data store: Firestore if configured, else localStorage
+// Firebase / storage plumbing
 // ---------------------------------------------------------------------------
 
-const LOCAL_KEY = "fethiye-trip-data";
+const LOCAL_PREFIX = "open-sea-session:";
+const REMEMBER_KEY = "open-sea-unlocked";
 const usingFirebase = typeof firebaseConfig !== "undefined" && firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY";
 
 let db = null;
-let tripRef = null;
+
+function initFirebase() {
+  if (usingFirebase) {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+  }
+}
+
+function sessionRef(id) {
+  return db.collection("sessions").doc(id);
+}
+
+function fetchSessionOnce(id) {
+  if (usingFirebase) {
+    return sessionRef(id).get().then((doc) => (doc.exists ? doc.data() : null));
+  }
+  const raw = localStorage.getItem(LOCAL_PREFIX + id);
+  return Promise.resolve(raw ? JSON.parse(raw) : null);
+}
+
+function subscribeSession(id, onData) {
+  if (usingFirebase) {
+    return sessionRef(id).onSnapshot(
+      (doc) => {
+        if (doc.exists) onData(doc.data());
+        setSyncStatus("live");
+      },
+      (err) => {
+        console.error("Firestore error", err);
+        setSyncStatus("offline");
+      }
+    );
+  }
+  setSyncStatus("offline");
+  const raw = localStorage.getItem(LOCAL_PREFIX + id);
+  onData(raw ? JSON.parse(raw) : null);
+  const handler = (e) => {
+    if (e.key === LOCAL_PREFIX + id && e.newValue) onData(JSON.parse(e.newValue));
+  };
+  window.addEventListener("storage", handler);
+  return () => window.removeEventListener("storage", handler);
+}
+
+function createSessionDoc(id, data) {
+  if (usingFirebase) return sessionRef(id).set(data);
+  localStorage.setItem(LOCAL_PREFIX + id, JSON.stringify(data));
+  return Promise.resolve();
+}
+
+function saveSession(id, data) {
+  data._updatedAt = Date.now();
+  if (usingFirebase) {
+    setSyncStatus("pending");
+    return sessionRef(id)
+      .set(data)
+      .then(() => setSyncStatus("live"))
+      .catch(() => setSyncStatus("offline"));
+  }
+  localStorage.setItem(LOCAL_PREFIX + id, JSON.stringify(data));
+  return Promise.resolve();
+}
 
 function setSyncStatus(state) {
   const el = document.getElementById("syncStatus");
@@ -88,48 +99,68 @@ function setSyncStatus(state) {
   el.title = { live: "Live sync with Firebase", offline: "Local only — friends won't see edits (set up Firebase, see README)", pending: "Saving…" }[state] || "";
 }
 
-function initStore(onData) {
-  if (usingFirebase) {
-    firebase.initializeApp(firebaseConfig);
-    db = firebase.firestore();
-    tripRef = db.collection("trips").doc("fethiye");
+// ---------------------------------------------------------------------------
+// Helpers: slugify + password hashing
+// ---------------------------------------------------------------------------
 
-    tripRef.onSnapshot((doc) => {
-      if (doc.exists) {
-        onData(doc.data());
-      } else {
-        tripRef.set(DEFAULT_TRIP).then(() => onData(DEFAULT_TRIP));
-      }
-      setSyncStatus("live");
-    }, (err) => {
-      console.error("Firestore error", err);
-      setSyncStatus("offline");
-    });
-  } else {
-    setSyncStatus("offline");
-    const raw = localStorage.getItem(LOCAL_KEY);
-    onData(raw ? JSON.parse(raw) : DEFAULT_TRIP);
-    window.addEventListener("storage", (e) => {
-      if (e.key === LOCAL_KEY && e.newValue) onData(JSON.parse(e.newValue));
-    });
+const TR_MAP = { ı: "i", İ: "i", ğ: "g", Ğ: "g", ü: "u", Ü: "u", ş: "s", Ş: "s", ö: "o", Ö: "o", ç: "c", Ç: "c" };
+
+function slugify(str) {
+  return str
+    .toLowerCase()
+    .split("")
+    .map((ch) => TR_MAP[ch] || ch)
+    .join("")
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+async function hashPassword(pw) {
+  if (window.crypto && window.crypto.subtle) {
+    const buf = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(pw));
+    return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  // Fallback for non-secure contexts (e.g. opening index.html directly as a file://
+  // URL in a browser that doesn't expose crypto.subtle there). Not cryptographic.
+  let h = 0;
+  for (let i = 0; i < pw.length; i++) h = (Math.imul(31, h) + pw.charCodeAt(i)) | 0;
+  return "fallback-" + (h >>> 0).toString(16);
+}
+
+// ---------------------------------------------------------------------------
+// Remembered sessions (per-browser convenience, so friends don't retype
+// the password every visit on their own device)
+// ---------------------------------------------------------------------------
+
+function getRemembered() {
+  try {
+    return JSON.parse(localStorage.getItem(REMEMBER_KEY) || "{}");
+  } catch {
+    return {};
   }
 }
 
-function saveTrip(trip) {
-  trip._updatedAt = Date.now();
-  if (usingFirebase) {
-    setSyncStatus("pending");
-    tripRef.set(trip).then(() => setSyncStatus("live")).catch(() => setSyncStatus("offline"));
-  } else {
-    localStorage.setItem(LOCAL_KEY, JSON.stringify(trip));
-  }
+function remember(id, passwordHash, name) {
+  const all = getRemembered();
+  all[id] = { passwordHash, name, ts: Date.now() };
+  localStorage.setItem(REMEMBER_KEY, JSON.stringify(all));
+}
+
+function forget(id) {
+  const all = getRemembered();
+  delete all[id];
+  localStorage.setItem(REMEMBER_KEY, JSON.stringify(all));
 }
 
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
 
-let trip = DEFAULT_TRIP;
+let trip = { title: "", generalNotes: "", days: [] };
+let currentSessionId = null;
+let unsubscribeSession = null;
 let map, markerLayer;
 let addStopMode = false;
 let editingContext = null; // { dayId, stopId } or { dayId } for new stop
@@ -139,8 +170,122 @@ function uid() {
 }
 
 function commit() {
-  saveTrip(trip);
+  saveSession(currentSessionId, trip);
   render();
+}
+
+// ---------------------------------------------------------------------------
+// Landing screen
+// ---------------------------------------------------------------------------
+
+function showLanding() {
+  if (unsubscribeSession) {
+    unsubscribeSession();
+    unsubscribeSession = null;
+  }
+  currentSessionId = null;
+  document.getElementById("landing").classList.remove("hidden");
+  document.getElementById("app").classList.add("hidden");
+  document.getElementById("joinError").classList.add("hidden");
+  document.getElementById("createError").classList.add("hidden");
+  document.getElementById("joinForm").reset();
+  document.getElementById("createForm").reset();
+  renderRecentSessions();
+}
+
+function renderRecentSessions() {
+  const remembered = getRemembered();
+  const ids = Object.keys(remembered).sort((a, b) => remembered[b].ts - remembered[a].ts);
+  const box = document.getElementById("recentSessions");
+  const list = document.getElementById("recentList");
+  list.innerHTML = "";
+  if (ids.length === 0) {
+    box.classList.add("hidden");
+    return;
+  }
+  box.classList.remove("hidden");
+  ids.forEach((id) => {
+    const row = document.createElement("div");
+    row.className = "recent-item";
+    row.innerHTML = `
+      <button class="btn btn-secondary recent-btn">${escapeHtml(remembered[id].name || id)}</button>
+      <button class="icon-btn recent-forget" title="Forget this session">✕</button>
+    `;
+    row.querySelector(".recent-btn").addEventListener("click", () => enterSession(id, remembered[id].name));
+    row.querySelector(".recent-forget").addEventListener("click", (e) => {
+      e.stopPropagation();
+      forget(id);
+      renderRecentSessions();
+    });
+    list.appendChild(row);
+  });
+}
+
+function enterSession(id, name) {
+  document.getElementById("landing").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  currentSessionId = id;
+  if (unsubscribeSession) unsubscribeSession();
+  unsubscribeSession = subscribeSession(id, (data) => {
+    trip = data;
+    if (!trip.days) trip.days = [];
+    render();
+  });
+  renderMap._fitted = false;
+}
+
+function wireLanding() {
+  document.getElementById("joinForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById("joinError");
+    errEl.classList.add("hidden");
+    const rawName = document.getElementById("joinName").value.trim();
+    const password = document.getElementById("joinPassword").value;
+    const id = slugify(rawName);
+    if (!id) return;
+
+    const data = await fetchSessionOnce(id);
+    if (!data) {
+      errEl.textContent = "No session found with that name.";
+      errEl.classList.remove("hidden");
+      return;
+    }
+    const hash = await hashPassword(password);
+    if (hash !== data.passwordHash) {
+      errEl.textContent = "Wrong password.";
+      errEl.classList.remove("hidden");
+      return;
+    }
+    remember(id, hash, data.title || rawName);
+    enterSession(id, data.title || rawName);
+  });
+
+  document.getElementById("createForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errEl = document.getElementById("createError");
+    errEl.classList.add("hidden");
+    const rawName = document.getElementById("createName").value.trim();
+    const password = document.getElementById("createPassword").value;
+    const id = slugify(rawName);
+    if (!id) {
+      errEl.textContent = "Please enter a valid name.";
+      errEl.classList.remove("hidden");
+      return;
+    }
+    const existing = await fetchSessionOnce(id);
+    if (existing) {
+      errEl.textContent = "That name is taken — try a more specific one.";
+      errEl.classList.remove("hidden");
+      return;
+    }
+    const hash = await hashPassword(password);
+    const data = { title: rawName, generalNotes: "", days: [], passwordHash: hash, createdAt: Date.now() };
+    await createSessionDoc(id, data);
+    remember(id, hash, rawName);
+    enterSession(id, rawName);
+  });
+
+  document.getElementById("switchSessionBtn").addEventListener("click", showLanding);
 }
 
 // ---------------------------------------------------------------------------
@@ -300,7 +445,7 @@ function renderItinerary() {
     list.appendChild(card);
   });
 
-  document.getElementById("tripTitle").value = trip.title || "Fethiye Boat Trip";
+  document.getElementById("tripTitle").value = trip.title || "Boat Trip";
   document.getElementById("generalNotes").value = trip.generalNotes || "";
   populateDaySelect();
 }
@@ -327,7 +472,7 @@ function setAddStopMode(on) {
 }
 
 // ---------------------------------------------------------------------------
-// Modal
+// Stop modal
 // ---------------------------------------------------------------------------
 
 function openStopModal(ctx) {
@@ -468,11 +613,16 @@ function wireUi() {
 // ---------------------------------------------------------------------------
 
 window.addEventListener("DOMContentLoaded", () => {
+  initFirebase();
   initMap();
   wireUi();
-  initStore((data) => {
-    trip = data;
-    if (!trip.days) trip.days = [];
-    render();
-  });
+  wireLanding();
+
+  const remembered = getRemembered();
+  const ids = Object.keys(remembered).sort((a, b) => remembered[b].ts - remembered[a].ts);
+  if (ids.length > 0) {
+    enterSession(ids[0], remembered[ids[0]].name);
+  } else {
+    showLanding();
+  }
 });

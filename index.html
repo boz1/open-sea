@@ -3,18 +3,49 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Fethiye Boat Trip</title>
+<title>Open Sea — Boat Trip Planner</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
 
-<div id="app">
+<div id="landing" class="landing">
+  <div class="landing-card">
+    <h1>🌊 Open Sea</h1>
+    <p class="landing-sub">Boat trip planner — mark stops on a map, build the itinerary, share it with your crew.</p>
+
+    <div id="recentSessions" class="recent-sessions hidden">
+      <h3>Your sessions</h3>
+      <div id="recentList"></div>
+    </div>
+
+    <form id="joinForm" class="landing-form">
+      <h3>Join a session</h3>
+      <input id="joinName" type="text" placeholder="Session name" autocomplete="off" required />
+      <input id="joinPassword" type="password" placeholder="Password" autocomplete="off" required />
+      <button type="submit" class="btn btn-primary">Join</button>
+      <div id="joinError" class="form-error hidden"></div>
+    </form>
+
+    <form id="createForm" class="landing-form">
+      <h3>Create a new session</h3>
+      <input id="createName" type="text" placeholder="Trip name (e.g. Croatia 2027)" autocomplete="off" required />
+      <input id="createPassword" type="password" placeholder="Set a password" autocomplete="off" required />
+      <button type="submit" class="btn btn-secondary">Create</button>
+      <div id="createError" class="form-error hidden"></div>
+    </form>
+
+    <p class="landing-fineprint">Sessions are a lightweight name+password gate for keeping trip groups separate — not bank-grade security. Don't put anything truly sensitive in here.</p>
+  </div>
+</div>
+
+<div id="app" class="hidden">
 
   <header id="topbar">
     <button id="menuToggle" class="icon-btn" aria-label="Toggle itinerary">☰</button>
-    <input id="tripTitle" type="text" value="Fethiye Boat Trip" />
+    <button id="switchSessionBtn" class="icon-btn" title="Switch session">⇄</button>
+    <input id="tripTitle" type="text" value="Boat Trip" />
     <div id="syncStatus" class="sync-status" title="Sync status">●</div>
   </header>
 
