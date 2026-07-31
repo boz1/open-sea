@@ -117,6 +117,14 @@ function slugify(str) {
     .replace(/^-+|-+$/g, "");
 }
 
+// Converts legacy "DD.MM.YYYY" free-text dates into the ISO "YYYY-MM-DD"
+// format the native <input type="date"> picker expects. Anything else
+// (already ISO, blank, or unrecognized) passes through unchanged.
+function toIsoDate(str) {
+  const m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(str || "");
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : str;
+}
+
 async function hashPassword(pw) {
   if (window.crypto && window.crypto.subtle) {
     const buf = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(pw));
@@ -161,6 +169,8 @@ function forget(id) {
 let trip = { title: "", notes: [], days: [] };
 let currentSessionId = null;
 let unsubscribeSession = null;
+let pendingSessionId = null; // set right after Create, before the user clicks "Continue"
+let pendingSessionName = null;
 let map, markerLayer;
 let addStopMode = false;
 let editingContext = null; // { dayId, stopId } or { dayId } for new stop
@@ -203,7 +213,43 @@ function showLanding() {
   document.getElementById("createError").classList.add("hidden");
   document.getElementById("joinForm").reset();
   document.getElementById("createForm").reset();
+  document.getElementById("joinForm").classList.remove("hidden");
+  document.getElementById("joinName").readOnly = false;
+  document.getElementById("joinNameHint").classList.add("hidden");
+  document.getElementById("createForm").classList.remove("hidden");
+  document.getElementById("createSuccess").classList.add("hidden");
   renderRecentSessions();
+}
+
+function shareUrlFor(id) {
+  return `${location.origin}${location.pathname}?session=${encodeURIComponent(id)}`;
+}
+
+async function copyToClipboard(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    window.prompt("Copy this link:", text);
+    return false;
+  }
+}
+
+// If the page was opened via a shared link (?session=slug), pre-fill and
+// lock the join form's name field so the friend only has to type the password.
+async function applyShareLinkPrefill() {
+  const sessionParam = new URLSearchParams(location.search).get("session");
+  if (!sessionParam) return;
+  const id = slugify(sessionParam);
+  const data = await fetchSessionOnce(id);
+  if (!data) return;
+  const nameField = document.getElementById("joinName");
+  nameField.value = data.title || sessionParam;
+  nameField.readOnly = true;
+  const hint = document.getElementById("joinNameHint");
+  hint.textContent = `Joining "${data.title || sessionParam}" — just enter the password.`;
+  hint.classList.remove("hidden");
+  document.getElementById("joinPassword").focus();
 }
 
 function renderRecentSessions() {
@@ -242,12 +288,21 @@ function enterSession(id, name) {
   unsubscribeSession = subscribeSession(id, (data) => {
     trip = data;
     if (!trip.days) trip.days = [];
+    let needsSave = false;
     if (!trip.notes) {
       // Migrate the old single-textarea generalNotes into the new list-of-notes shape.
       trip.notes = trip.generalNotes ? [{ id: uid(), text: trip.generalNotes }] : [];
       delete trip.generalNotes;
-      saveSession(currentSessionId, trip);
+      needsSave = true;
     }
+    trip.days.forEach((day) => {
+      const iso = toIsoDate(day.date);
+      if (iso !== day.date) {
+        day.date = iso;
+        needsSave = true;
+      }
+    });
+    if (needsSave) saveSession(currentSessionId, trip);
     render();
   });
   renderMap._fitted = false;
@@ -287,7 +342,6 @@ function wireLanding() {
     const errEl = document.getElementById("createError");
     errEl.classList.add("hidden");
     const rawName = document.getElementById("createName").value.trim();
-    const password = document.getElementById("createPassword").value;
     const id = slugify(rawName);
     if (!id) {
       errEl.textContent = "Please enter a valid name.";
@@ -300,6 +354,7 @@ function wireLanding() {
       errEl.classList.remove("hidden");
       return;
     }
+    const password = String(Math.floor(1000 + Math.random() * 9000));
     const hash = await hashPassword(password);
     const data = {
       title: rawName,
@@ -312,10 +367,40 @@ function wireLanding() {
     };
     await createSessionDoc(id, data);
     remember(id, hash, rawName);
-    enterSession(id, rawName);
+
+    pendingSessionId = id;
+    pendingSessionName = rawName;
+    document.getElementById("successName").textContent = rawName;
+    document.getElementById("successPassword").textContent = password;
+    document.getElementById("createForm").classList.add("hidden");
+    document.getElementById("createSuccess").classList.remove("hidden");
+  });
+
+  document.getElementById("continueToSessionBtn").addEventListener("click", () => {
+    enterSession(pendingSessionId, pendingSessionName);
+  });
+
+  document.getElementById("copyShareBtn").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    const ok = await copyToClipboard(shareUrlFor(pendingSessionId));
+    if (ok) {
+      const original = btn.textContent;
+      btn.textContent = "✅ Copied!";
+      setTimeout(() => (btn.textContent = original), 1500);
+    }
   });
 
   document.getElementById("switchSessionBtn").addEventListener("click", showLanding);
+
+  document.getElementById("shareBtn").addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    const ok = await copyToClipboard(shareUrlFor(currentSessionId));
+    if (ok) {
+      const original = btn.textContent;
+      btn.textContent = "✅";
+      setTimeout(() => (btn.textContent = original), 1500);
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -418,17 +503,23 @@ function renderMap() {
 
   // Draw one continuous route across the whole trip: same-day hops get a
   // colored dashed line (per day), hops that cross into the next day get a
-  // plain gray line so the two are easy to tell apart.
+  // plain gray line so the two are easy to tell apart. Each segment shows
+  // its distance/time on hover.
   for (let i = 1; i < flat.length; i++) {
     const a = flat[i - 1];
     const b = flat[i];
     const sameDay = a.dayIndex === b.dayIndex;
-    L.polyline(
-      [[a.stop.lat, a.stop.lng], [b.stop.lat, b.stop.lng]],
-      sameDay
-        ? { color: DAY_LINE_COLORS[a.dayIndex % DAY_LINE_COLORS.length], weight: 3, opacity: 0.6, dashArray: "6 6" }
-        : { color: "#5a6b73", weight: 2, opacity: 0.5, dashArray: "2 8" }
-    ).addTo(markerLayer);
+    const style = sameDay
+      ? { color: DAY_LINE_COLORS[a.dayIndex % DAY_LINE_COLORS.length], weight: 3, opacity: 0.6, dashArray: "6 6" }
+      : { color: "#5a6b73", weight: 2, opacity: 0.5, dashArray: "2 8" };
+    const nm = haversineNm(a.stop, b.stop);
+    const line = L.polyline([[a.stop.lat, a.stop.lng], [b.stop.lat, b.stop.lng]], style).addTo(markerLayer);
+    line.bindTooltip(
+      `<strong>${escapeHtml(a.stop.name)} → ${escapeHtml(b.stop.name)}</strong><br>${nm.toFixed(1)} nm · ≈${formatDuration(nm / currentSpeedKnots())}`,
+      { sticky: true, direction: "top", className: "route-tooltip" }
+    );
+    line.on("mouseover", () => line.setStyle({ weight: style.weight + 3, opacity: 1 }));
+    line.on("mouseout", () => line.setStyle(style));
   }
 
   if (bounds.length && !renderMap._fitted) {
@@ -533,7 +624,7 @@ function renderItinerary() {
         <button class="del-day" title="Delete day">✕</button>
       </div>
       <div class="day-header-row">
-        <input class="day-date" type="text" placeholder="date" value="${escapeHtml(day.date || "")}" />
+        <input class="day-date" type="date" value="${escapeHtml(day.date || "")}" />
         ${estimate ? `<span class="day-estimate" title="Estimated underway time at ${currentSpeedKnots()} kn">${estimate}</span>` : ""}
       </div>
     `;
@@ -815,11 +906,17 @@ function wireUi() {
 // Boot
 // ---------------------------------------------------------------------------
 
-window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("DOMContentLoaded", async () => {
   initFirebase();
   initMap();
   wireUi();
   wireLanding();
+
+  if (new URLSearchParams(location.search).get("session")) {
+    showLanding();
+    await applyShareLinkPrefill();
+    return;
+  }
 
   const remembered = getRemembered();
   const ids = Object.keys(remembered).sort((a, b) => remembered[b].ts - remembered[a].ts);

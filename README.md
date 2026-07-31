@@ -84,10 +84,15 @@ Any time you push new commits to `main`, the live site updates automatically.
 
 ## Using the app
 
-- **Landing screen**: create a new session (pick a trip name + password) or
-  join an existing one (same name + password someone else already set up).
-  Sessions you've unlocked on this device are remembered for next time —
-  click the ⇄ button in the top bar to switch sessions.
+- **Landing screen**: create a new session (just pick a trip name — a
+  4-digit password is generated for you) or join an existing one (name +
+  password someone else set up). After creating a session you'll see its
+  password once, plus a "Copy share link" button. Sessions you've unlocked
+  on this device are remembered for next time — click the ⇄ button in the
+  top bar to switch sessions.
+- **🔗 Share**: the top-bar button copies a link that pre-fills the session
+  name for whoever opens it — they only need to type the password. The same
+  link appears right after creating a session, ready to paste into a chat.
 - **Add Stop on Map**: click the button in the sidebar, then click anywhere
   on the map to drop a pin; a form pops up to name it, assign it to a day,
   and add a time/notes/type (anchorage, swim spot, sight, town, food). You
@@ -96,9 +101,11 @@ Any time you push new commits to `main`, the live site updates automatically.
   highlights its sidebar row and shows a preview popup (name/time/notes)
   with an **Edit** button — clicking the pin itself just opens that preview,
   editing needs the explicit button (works with tap on mobile too).
-- **+ Add Day** creates a new day card. The whole trip is drawn as one
-  continuous route: same-day stops connect with a dashed line in that day's
-  color, and the hop into the next day connects with a plain gray line.
+- **+ Add Day** creates a new day card with a native date picker. The whole
+  trip is drawn as one continuous, hoverable route: same-day stops connect
+  with a dashed line in that day's color, the hop into the next day
+  connects with a plain gray line, and hovering any segment shows its
+  distance and estimated time.
 - Use the ▲/▼ buttons on a stop to reorder it within its day.
 - **⛵ Boat & speed**: pick a boat type (catamaran, monohull, gulet,
   motorboat) or set a custom average speed in knots. Every day card shows

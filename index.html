@@ -22,6 +22,7 @@
 
     <form id="joinForm" class="landing-form">
       <h3>Join a session</h3>
+      <div id="joinNameHint" class="hint-text hidden"></div>
       <input id="joinName" type="text" placeholder="Session name" autocomplete="off" required />
       <input id="joinPassword" type="password" placeholder="Password" autocomplete="off" required />
       <button type="submit" class="btn btn-primary">Join</button>
@@ -31,10 +32,20 @@
     <form id="createForm" class="landing-form">
       <h3>Create a new session</h3>
       <input id="createName" type="text" placeholder="Trip name (e.g. Croatia 2027)" autocomplete="off" required />
-      <input id="createPassword" type="password" placeholder="Set a password" autocomplete="off" required />
+      <p class="hint-text">A 4-digit password is generated automatically — you'll get a link and password to share once it's created.</p>
       <button type="submit" class="btn btn-secondary">Create</button>
       <div id="createError" class="form-error hidden"></div>
     </form>
+
+    <div id="createSuccess" class="create-success hidden">
+      <p>🎉 Session created! Share these with your crew:</p>
+      <div class="share-box">
+        <div><strong>Name:</strong> <span id="successName"></span></div>
+        <div><strong>Password:</strong> <span id="successPassword"></span></div>
+      </div>
+      <button id="copyShareBtn" type="button" class="btn btn-secondary">🔗 Copy share link</button>
+      <button id="continueToSessionBtn" type="button" class="btn btn-primary">Continue →</button>
+    </div>
 
     <p class="landing-fineprint">Sessions are a lightweight name+password gate for keeping trip groups separate — not bank-grade security. Don't put anything truly sensitive in here.</p>
   </div>
@@ -45,6 +56,7 @@
   <header id="topbar">
     <button id="menuToggle" class="icon-btn" aria-label="Toggle itinerary">☰</button>
     <button id="switchSessionBtn" class="icon-btn" title="Switch session">⇄</button>
+    <button id="shareBtn" class="icon-btn" title="Copy share link">🔗</button>
     <input id="tripTitle" type="text" value="Boat Trip" />
     <div id="syncStatus" class="sync-status" title="Sync status">●</div>
   </header>

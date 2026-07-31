@@ -83,6 +83,34 @@ html, body {
   margin-top: 8px;
 }
 
+.hint-text {
+  font-size: 0.78rem;
+  color: #7a8a90;
+  margin: -4px 0 10px;
+  line-height: 1.4;
+}
+
+.landing-form input[readonly] {
+  background: #f2f7f9;
+  color: #5a6b73;
+}
+
+.create-success {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+  margin-top: 16px;
+}
+.create-success p { margin: 0 0 10px; font-size: 0.9rem; }
+.share-box {
+  background: #eef3f4;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+.create-success .btn { margin-bottom: 8px; }
+
 .landing-fineprint {
   margin: 18px 0 0;
   font-size: 0.75rem;
@@ -565,6 +593,11 @@ html, body {
   width: 100%;
 }
 .popup-edit-btn:hover { background: var(--deep); }
+
+.route-tooltip {
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
 
 /* Mobile layout */
 @media (max-width: 820px) {
