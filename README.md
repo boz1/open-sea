@@ -92,16 +92,28 @@ Any time you push new commits to `main`, the live site updates automatically.
   on the map to drop a pin; a form pops up to name it, assign it to a day,
   and add a time/notes/type (anchorage, swim spot, sight, town, food). You
   can also nudge a stop's exact coordinates from that same form.
-- Click any existing marker or itinerary row to edit or delete it.
-- **+ Add Day** creates a new day card; each day's stops are connected on
-  the map with a dashed line in that day's color.
+- Hovering a sidebar stop highlights its pin on the map, and hovering a pin
+  highlights its sidebar row and shows a preview popup (name/time/notes)
+  with an **Edit** button — clicking the pin itself just opens that preview,
+  editing needs the explicit button (works with tap on mobile too).
+- **+ Add Day** creates a new day card. The whole trip is drawn as one
+  continuous route: same-day stops connect with a dashed line in that day's
+  color, and the hop into the next day connects with a plain gray line.
 - Use the ▲/▼ buttons on a stop to reorder it within its day.
-- **Trip notes**: a collapsible free-text panel in the sidebar for anything
-  that applies to the whole trip (logistics, mooring rules, etc.), shared
-  live like everything else.
-- Everything in a session (title, notes, days, stops, order) is stored in
-  one shared document, so all changes sync to everyone in that session
-  within a few seconds.
+- **⛵ Boat & speed**: pick a boat type (catamaran, monohull, gulet,
+  motorboat) or set a custom average speed in knots. Every day card shows
+  an estimated underway time + distance based on straight-line distance
+  between stops, plus a running total for the whole trip.
+- **Trip notes**: a list of separate free-text notes (add/remove each
+  independently) in the sidebar for anything that applies to the whole trip
+  (logistics, mooring rules, packing list, etc.), shared live like
+  everything else.
+- Click the ☰ button in the top bar to collapse the sidebar for more map
+  room (slides in/out as an overlay on mobile, shrinks to nothing on
+  desktop).
+- Everything in a session (title, notes, boat settings, days, stops, order)
+  is stored in one shared document, so all changes sync to everyone in that
+  session within a few seconds.
 
 ## A note on the password gate
 

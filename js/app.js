@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 // Open Sea — boat trip planner
 // Multiple named "sessions" (one per trip), each gated by a password chosen
-// at creation. Each session is its own document: {title, generalNotes, days:
+// at creation. Each session is its own document: {title, notes, days:
 // [{stops:[...]}]}, synced live via Firestore when firebase-config.js has
 // real keys; otherwise falls back to localStorage (single device only).
 //
@@ -158,7 +158,7 @@ function forget(id) {
 // State
 // ---------------------------------------------------------------------------
 
-let trip = { title: "", generalNotes: "", days: [] };
+let trip = { title: "", notes: [], days: [] };
 let currentSessionId = null;
 let unsubscribeSession = null;
 let map, markerLayer;
@@ -242,6 +242,12 @@ function enterSession(id, name) {
   unsubscribeSession = subscribeSession(id, (data) => {
     trip = data;
     if (!trip.days) trip.days = [];
+    if (!trip.notes) {
+      // Migrate the old single-textarea generalNotes into the new list-of-notes shape.
+      trip.notes = trip.generalNotes ? [{ id: uid(), text: trip.generalNotes }] : [];
+      delete trip.generalNotes;
+      saveSession(currentSessionId, trip);
+    }
     render();
   });
   renderMap._fitted = false;
@@ -297,7 +303,7 @@ function wireLanding() {
     const hash = await hashPassword(password);
     const data = {
       title: rawName,
-      generalNotes: "",
+      notes: [],
       boatType: "catamaran",
       boatSpeedKnots: BOAT_PRESETS.catamaran.knots,
       days: [],
@@ -355,65 +361,75 @@ function buildPopupHtml(stop) {
 
 const DAY_LINE_COLORS = ["#e0674b", "#4fa3c4", "#6a9e4a", "#c48fd6", "#d6a24f", "#5a6b73"];
 
+function flattenStops(days) {
+  const flat = [];
+  days.forEach((day, dayIndex) => day.stops.forEach((stop) => flat.push({ stop, day, dayIndex })));
+  return flat;
+}
+
 function renderMap() {
   markerLayer.clearLayers();
   stopMarkers = {};
   const bounds = [];
+  const flat = flattenStops(trip.days);
 
-  trip.days.forEach((day, di) => {
-    const latlngs = [];
-    day.stops.forEach((stop) => {
-      const marker = L.marker([stop.lat, stop.lng], { icon: stopDivIcon(stop.type) });
-      marker.bindPopup(buildPopupHtml(stop), { closeButton: true, autoClose: false, closeOnClick: false, offset: [0, -4] });
+  flat.forEach(({ stop, day }) => {
+    const marker = L.marker([stop.lat, stop.lng], { icon: stopDivIcon(stop.type) });
+    marker.bindPopup(buildPopupHtml(stop), { closeButton: true, autoClose: false, closeOnClick: false, offset: [0, -4] });
 
-      let closeTimer = null;
-      const openNow = () => {
-        clearTimeout(closeTimer);
-        marker.openPopup();
-      };
-      const closeSoon = () => {
-        closeTimer = setTimeout(() => marker.closePopup(), 200);
-      };
+    let closeTimer = null;
+    const openNow = () => {
+      clearTimeout(closeTimer);
+      marker.openPopup();
+    };
+    const closeSoon = () => {
+      closeTimer = setTimeout(() => marker.closePopup(), 200);
+    };
 
-      marker.on("mouseover", () => {
-        openNow();
-        highlightStop(stop.id, true);
-      });
-      marker.on("mouseout", () => {
-        closeSoon();
-        highlightStop(stop.id, false);
-      });
-      // Clicking (or tapping, on touch devices) just reveals the popup —
-      // editing requires the explicit Edit button inside it.
-      marker.on("click", openNow);
-      marker.on("popupopen", (e) => {
-        const el = e.popup.getElement();
-        const btn = el.querySelector(".popup-edit-btn");
-        if (btn) {
-          btn.addEventListener("click", (ev) => {
-            ev.stopPropagation();
-            marker.closePopup();
-            openStopModal({ dayId: day.id, stopId: stop.id });
-          });
-        }
-        el.addEventListener("mouseenter", () => clearTimeout(closeTimer));
-        el.addEventListener("mouseleave", closeSoon);
-      });
-
-      marker.addTo(markerLayer);
-      stopMarkers[stop.id] = marker;
-      latlngs.push([stop.lat, stop.lng]);
-      bounds.push([stop.lat, stop.lng]);
+    marker.on("mouseover", () => {
+      openNow();
+      highlightStop(stop.id, true);
     });
-    if (latlngs.length > 1) {
-      L.polyline(latlngs, {
-        color: DAY_LINE_COLORS[di % DAY_LINE_COLORS.length],
-        weight: 3,
-        opacity: 0.6,
-        dashArray: "6 6",
-      }).addTo(markerLayer);
-    }
+    marker.on("mouseout", () => {
+      closeSoon();
+      highlightStop(stop.id, false);
+    });
+    // Clicking (or tapping, on touch devices) just reveals the popup —
+    // editing requires the explicit Edit button inside it.
+    marker.on("click", openNow);
+    marker.on("popupopen", (e) => {
+      const el = e.popup.getElement();
+      const btn = el.querySelector(".popup-edit-btn");
+      if (btn) {
+        btn.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          marker.closePopup();
+          openStopModal({ dayId: day.id, stopId: stop.id });
+        });
+      }
+      el.addEventListener("mouseenter", () => clearTimeout(closeTimer));
+      el.addEventListener("mouseleave", closeSoon);
+    });
+
+    marker.addTo(markerLayer);
+    stopMarkers[stop.id] = marker;
+    bounds.push([stop.lat, stop.lng]);
   });
+
+  // Draw one continuous route across the whole trip: same-day hops get a
+  // colored dashed line (per day), hops that cross into the next day get a
+  // plain gray line so the two are easy to tell apart.
+  for (let i = 1; i < flat.length; i++) {
+    const a = flat[i - 1];
+    const b = flat[i];
+    const sameDay = a.dayIndex === b.dayIndex;
+    L.polyline(
+      [[a.stop.lat, a.stop.lng], [b.stop.lat, b.stop.lng]],
+      sameDay
+        ? { color: DAY_LINE_COLORS[a.dayIndex % DAY_LINE_COLORS.length], weight: 3, opacity: 0.6, dashArray: "6 6" }
+        : { color: "#5a6b73", weight: 2, opacity: 0.5, dashArray: "2 8" }
+    ).addTo(markerLayer);
+  }
 
   if (bounds.length && !renderMap._fitted) {
     map.fitBounds(bounds, { padding: [40, 40] });
@@ -445,9 +461,31 @@ function haversineNm(a, b) {
   return km / 1.852;
 }
 
-function dayDistanceNm(day) {
+function lastStopBefore(days, dayIndex) {
+  for (let i = dayIndex - 1; i >= 0; i--) {
+    if (days[i].stops.length) return days[i].stops[days[i].stops.length - 1];
+  }
+  return null;
+}
+
+// Distance to sail/motor this day's plan, including the leg arriving from
+// the previous day's last stop (so single-stop "transit" days still show
+// an estimate instead of 0).
+function dayDistanceNm(days, dayIndex) {
+  const day = days[dayIndex];
+  let prevStop = lastStopBefore(days, dayIndex);
   let nm = 0;
-  for (let i = 1; i < day.stops.length; i++) nm += haversineNm(day.stops[i - 1], day.stops[i]);
+  for (const stop of day.stops) {
+    if (prevStop) nm += haversineNm(prevStop, stop);
+    prevStop = stop;
+  }
+  return nm;
+}
+
+function totalTripNm(days) {
+  const flat = flattenStops(days);
+  let nm = 0;
+  for (let i = 1; i < flat.length; i++) nm += haversineNm(flat[i - 1].stop, flat[i].stop);
   return nm;
 }
 
@@ -487,7 +525,7 @@ function renderItinerary() {
 
     const header = document.createElement("div");
     header.className = "day-header";
-    const nm = dayDistanceNm(day);
+    const nm = dayDistanceNm(trip.days, di);
     const estimate = nm > 0 ? `≈ ${formatDuration(nm / currentSpeedKnots())} · ${nm.toFixed(1)} nm` : "";
     header.innerHTML = `
       <div class="day-header-row">
@@ -565,13 +603,34 @@ function renderItinerary() {
   });
 
   document.getElementById("tripTitle").value = trip.title || "Boat Trip";
-  document.getElementById("generalNotes").value = trip.generalNotes || "";
   document.getElementById("boatType").value = trip.boatType || "catamaran";
   document.getElementById("boatSpeed").value = currentSpeedKnots();
-  const totalNm = trip.days.reduce((sum, d) => sum + dayDistanceNm(d), 0);
+  const totalNm = totalTripNm(trip.days);
   document.getElementById("boatTotalEstimate").textContent =
     totalNm > 0 ? `Estimated total underway time: ${formatDuration(totalNm / currentSpeedKnots())} over ${totalNm.toFixed(1)} nm` : "";
   populateDaySelect();
+}
+
+function renderNotes() {
+  const list = document.getElementById("notesList");
+  list.innerHTML = "";
+  (trip.notes || []).forEach((note, i) => {
+    const row = document.createElement("div");
+    row.className = "note-item";
+    row.innerHTML = `
+      <textarea rows="3" placeholder="Note ${i + 1}...">${escapeHtml(note.text)}</textarea>
+      <button class="icon-btn note-delete" title="Delete note">✕</button>
+    `;
+    row.querySelector("textarea").addEventListener("change", (e) => {
+      note.text = e.target.value;
+      commit();
+    });
+    row.querySelector(".note-delete").addEventListener("click", () => {
+      trip.notes = trip.notes.filter((n) => n.id !== note.id);
+      commit();
+    });
+    list.appendChild(row);
+  });
 }
 
 function populateDaySelect() {
@@ -581,6 +640,7 @@ function populateDaySelect() {
 
 function render() {
   renderItinerary();
+  renderNotes();
   renderMap();
 }
 
@@ -697,7 +757,13 @@ function deleteStopFromModal() {
 
 function wireUi() {
   document.getElementById("menuToggle").addEventListener("click", () => {
-    document.getElementById("sidebar").classList.toggle("open");
+    const sidebar = document.getElementById("sidebar");
+    // "open" drives the mobile slide-over drawer, "collapsed" drives the
+    // desktop width collapse — each only has an effect within its own
+    // media query, so toggling both together is safe at every screen size.
+    sidebar.classList.toggle("open");
+    sidebar.classList.toggle("collapsed");
+    setTimeout(() => map.invalidateSize(), 220);
   });
 
   document.getElementById("addStopBtn").addEventListener("click", () => setAddStopMode(!addStopMode));
@@ -712,8 +778,9 @@ function wireUi() {
     commit();
   });
 
-  document.getElementById("generalNotes").addEventListener("change", (e) => {
-    trip.generalNotes = e.target.value;
+  document.getElementById("addNoteBtn").addEventListener("click", () => {
+    if (!trip.notes) trip.notes = [];
+    trip.notes.push({ id: uid(), text: "" });
     commit();
   });
 

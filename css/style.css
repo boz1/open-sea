@@ -177,6 +177,16 @@ html, body {
   flex-direction: column;
   min-height: 0;
   z-index: 15;
+  transition: width .2s ease;
+}
+
+/* Desktop collapse: mobile has its own slide-over behavior below (.open) */
+@media (min-width: 821px) {
+  #sidebar.collapsed {
+    width: 0;
+    border-right: none;
+    overflow: hidden;
+  }
 }
 
 .sidebar-scroll {
@@ -237,6 +247,46 @@ html, body {
   box-sizing: border-box;
 }
 .notes-box textarea:focus { outline: none; background: white; }
+
+.notes-list {
+  border-top: 1px solid var(--line);
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.note-item {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+.note-item textarea {
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  padding: 6px 8px;
+  font-size: 0.82rem;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.note-item textarea:focus { outline: 1px solid var(--sea-light); }
+.note-item .note-delete {
+  background: transparent;
+  color: #9aa8ad;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+}
+.note-item .note-delete:hover { color: var(--coral); }
+
+.btn-small {
+  padding: 7px 10px;
+  font-size: 0.8rem;
+  margin: 8px;
+  width: calc(100% - 16px);
+}
 
 .boat-settings {
   padding: 10px;

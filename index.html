@@ -52,9 +52,10 @@
   <div id="body">
     <aside id="sidebar">
       <div class="sidebar-scroll">
-        <details id="notesBox" class="notes-box">
+        <details id="notesBox" class="notes-box" open>
           <summary>📋 Trip notes</summary>
-          <textarea id="generalNotes" rows="6" placeholder="Shared notes for everyone (logistics, mooring info, etc.)"></textarea>
+          <div id="notesList" class="notes-list"></div>
+          <button id="addNoteBtn" class="btn btn-secondary btn-small">+ Add note</button>
         </details>
         <details id="boatBox" class="notes-box" open>
           <summary>⛵ Boat &amp; speed</summary>
