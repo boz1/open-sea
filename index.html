@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Fethiye Boat Trip</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div id="app">
+
+  <header id="topbar">
+    <button id="menuToggle" class="icon-btn" aria-label="Toggle itinerary">☰</button>
+    <input id="tripTitle" type="text" value="Fethiye Boat Trip" />
+    <div id="syncStatus" class="sync-status" title="Sync status">●</div>
+  </header>
+
+  <div id="body">
+    <aside id="sidebar">
+      <div class="sidebar-scroll">
+        <div id="dayList"></div>
+        <button id="addDayBtn" class="btn btn-secondary">+ Add Day</button>
+      </div>
+      <div class="sidebar-footer">
+        <button id="addStopBtn" class="btn btn-primary">📍 Add Stop on Map</button>
+        <div id="addStopHint" class="hint hidden">Tap the map to place the pin…</div>
+      </div>
+    </aside>
+
+    <main id="mapWrap">
+      <div id="map"></div>
+      <button id="locateBtn" class="icon-btn map-float" title="Center on me">◎</button>
+    </main>
+  </div>
+
+</div>
+
+<div id="modalOverlay" class="modal-overlay hidden">
+  <div class="modal">
+    <h3 id="modalHeading">Stop details</h3>
+    <label>Name
+      <input id="stopName" type="text" placeholder="e.g. Butterfly Valley" />
+    </label>
+    <label>Day
+      <select id="stopDay"></select>
+    </label>
+    <label>Time <span class="opt">(optional)</span>
+      <input id="stopTime" type="text" placeholder="e.g. 10:00 or morning" />
+    </label>
+    <label>Type
+      <select id="stopType">
+        <option value="anchorage">⚓ Anchorage</option>
+        <option value="swim">🏊 Swim spot</option>
+        <option value="sight">🏛️ Sight</option>
+        <option value="town">🏘️ Town / Harbor</option>
+        <option value="food">🍽️ Food</option>
+      </select>
+    </label>
+    <label>Notes <span class="opt">(optional)</span>
+      <textarea id="stopNotes" rows="3" placeholder="Anything worth remembering..."></textarea>
+    </label>
+    <div class="modal-actions">
+      <button id="deleteStopBtn" class="btn btn-danger hidden">Delete</button>
+      <div class="spacer"></div>
+      <button id="cancelStopBtn" class="btn btn-secondary">Cancel</button>
+      <button id="saveStopBtn" class="btn btn-primary">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="js/firebase-config.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
